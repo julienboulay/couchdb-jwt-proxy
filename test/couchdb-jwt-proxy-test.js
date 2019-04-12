@@ -101,18 +101,33 @@ describe('Running couchdb-jwt-proxy', () => {
 
   it('should fail to authenticate without authorization', async () => {
 
-    await request('http://localhost:5050/_session')
-      .should.be.rejectedWith(Error, '401 - "{\\n  \\"status\\": 401,\\n  \\"error\\": \\"Unauthorized\\",\\n  \\"message\\": \\"Not Authenticated\\"\\n}"');
+    await request({
+        uri: 'http://localhost:5050/_session',
+        json: true
+      })
+      .should.be.rejectedWith(Error, '401 - {"status":401,"error":"Unauthorized","message":"Not Authenticated"}');
   })
 
   it('should fail to authenticate with wrong jwt', async () => {
 
-    await request('http://localhost:5050/_session', {
+    await request({
+        uri: 'http://localhost:5050/_session',
         headers: {
           Authorization: 'Bearer invalidToken'
-        }
+        },
+        json: true
       })
-      .should.be.rejectedWith(Error, '401 - "{\\n  \\"status\\": 401,\\n  \\"error\\": \\"Unauthorized\\",\\n  \\"message\\": \\"Not Authenticated\\"\\n}"');
+      .should.be.rejectedWith(Error, '401 - {"status":401,"error":"Unauthorized","message":"Not Authenticated"}');
+  })
+
+  it('should pass through for CORS preflight request', async () => {
+
+    await request({
+        method: 'OPTIONS',
+        uri: 'http://localhost:5050/_session',
+        json: true
+      })
+      .should.eventually.eql({});
   })
 
   it('should pass proxy and provide X-Auth headers', async () => {
@@ -123,12 +138,17 @@ describe('Running couchdb-jwt-proxy', () => {
     //    "username": "john.doe",
     //    "iat": 1516239022
     // }
-    await request('http://localhost:5050/_session', {
+    await request({
+        uri: 'http://localhost:5050/_session',
         headers: {
           Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSIsInVzZXJuYW1lIjoiam9obi5kb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.ZLvZclMIA8uoyFJXQ9y0gWBTwPOUzYqDM8sU44HfZhQ'
-        }
+        },
+        json: true
       })
-      .should.eventually.equal('{"username":"john.doe","token":"9672635bac89e25197ebbee63d84237914c54f88"}');
+      .should.eventually.eql({
+        "username": "john.doe",
+        "token": "9672635bac89e25197ebbee63d84237914c54f88"
+      });
   })
 
 
@@ -141,12 +161,17 @@ describe('Running couchdb-jwt-proxy', () => {
     //    "username": "John Doe",
     //    "iat": 1516239022
     // }
-    await request('http://localhost:5050/_session', {
+    await request({
+        uri: 'http://localhost:5050/_session',
         headers: {
           Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSIsInVzZXJuYW1lIjoidW5rbm93biB1c2VyIiwiaWF0IjoxNTE2MjM5MDIyfQ.VuSfFkzzci6FehPevd0IhtsbvmvZxjePt5M0m6CkyvM'
-        }
+        },
+        json: true
       })
-      .should.eventually.equal('{"username":"unknown user","token":"73832a51f7da8e23a217e7d992be734c85d71802"}');
+      .should.eventually.eql({
+        "username": "unknown user",
+        "token": "73832a51f7da8e23a217e7d992be734c85d71802"
+      });
   })
 
   after(() => {
