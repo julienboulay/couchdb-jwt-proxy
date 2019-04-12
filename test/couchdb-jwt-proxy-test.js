@@ -14,7 +14,7 @@ const proxyOptions = {
     username_claim: 'username'
   },
   couchdb: {
-    url: 'http://127.0.0.1:5984',
+    url: 'http://127.0.0.1:5051',
     secret: 'couchdbSecret'
   }
 }
@@ -69,7 +69,7 @@ describe('Creating couchdb-jwt-proxy', () => {
 });
 
 describe('Running couchdb-jwt-proxy', () => {
-  let server;
+  let server, couchdbMockServer;
 
   before(() => {
     const proxy = ProxyServer.createProxy(proxyOptions);
@@ -79,8 +79,24 @@ describe('Running couchdb-jwt-proxy', () => {
     });
 
     server.listen(5050);
-    console.log("proxy listening on port 5050")
+    console.log("proxy server listening on port 5050")
 
+    /** Mock couchdb server */
+    couchdbMockServer = http.createServer(function (req, res) {
+      const username = req.headers['x-auth-couchdb-username'];
+      const token = req.headers['x-auth-couchdb-token'];
+      res.writeHead(200, {
+        'Content-Type': 'application/json'
+      });
+      res.write(JSON.stringify({
+        username,
+        token
+      }));
+      res.end();
+    })
+
+    couchdbMockServer.listen(5051);
+    console.log("couchdb mock server listening on port 5051")
   })
 
   it('should fail to authenticate without authorization', async () => {
@@ -112,11 +128,11 @@ describe('Running couchdb-jwt-proxy', () => {
           Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSIsInVzZXJuYW1lIjoiam9obi5kb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.ZLvZclMIA8uoyFJXQ9y0gWBTwPOUzYqDM8sU44HfZhQ'
         }
       })
-      .should.eventually.equal('{"ok":true,"userCtx":{"name":"john.doe","roles":[]},"info":{"authentication_db":"_users","authentication_handlers":["cookie","proxy","default"],"authenticated":"proxy"}}\n');
+      .should.eventually.equal('{"username":"john.doe","token":"9672635bac89e25197ebbee63d84237914c54f88"}');
   })
 
 
-  //Strange couchdb behaviour, but _session endpoint will always answer as 'authenticated', even if the user is unknown, but no access is granted to the dbs
+  //couchdb behaviour, _session endpoint will always answer as 'authenticated', even if the user is unknown, but no access is granted to the dbs
   it('should fail to authenticate with the wrong username', async () => {
 
     // JWT payload
@@ -130,10 +146,11 @@ describe('Running couchdb-jwt-proxy', () => {
           Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSIsInVzZXJuYW1lIjoidW5rbm93biB1c2VyIiwiaWF0IjoxNTE2MjM5MDIyfQ.VuSfFkzzci6FehPevd0IhtsbvmvZxjePt5M0m6CkyvM'
         }
       })
-      .should.eventually.equal('{"ok":true,"userCtx":{"name":"unknown user","roles":[]},"info":{"authentication_db":"_users","authentication_handlers":["cookie","proxy","default"],"authenticated":"proxy"}}\n');
+      .should.eventually.equal('{"username":"unknown user","token":"73832a51f7da8e23a217e7d992be734c85d71802"}');
   })
 
   after(() => {
     server.close();
+    couchdbMockServer.close();
   })
 })
