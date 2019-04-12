@@ -3,8 +3,7 @@ const ProxyServer = require('../lib/couchdb-jwt-proxy');
 
 const proxyOptions = {
   jwt: {
-    secret: 'jwtSecret',
-    username_claim: 'username'
+    secret: '01ec08b5-c86c-417a-a493-394a45cc1f15',
   },
   couchdb: {
     url: 'http://127.0.0.1:5984',
